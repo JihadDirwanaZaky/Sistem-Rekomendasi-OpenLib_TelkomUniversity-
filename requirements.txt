@@ -1,0 +1,5 @@
+streamlit
+scikit-learn
+pandas
+beautifulsoup4
+requests

@@ -4,46 +4,72 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import requests
 from bs4 import BeautifulSoup
-import gdown
+import random
+from supabase import create_client, Client
+
+# ========== Konfigurasi Supabase ==========
+SUPABASE_URL = "https://vmmzsghhyrtddnsmoscw.supabase.co "
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xxxxxx"
+
+client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ========== Judul Aplikasi ==========
-st.set_page_config(page_title="Sistem Rekomendasi Buku", layout="centered")
+st.set_page_config(page_title="Sistem Rekomendasi Buku", layout="wide")
+st.markdown("""
+<style>
+    body {
+        background-color: #f9f9f9;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .book-card {
+        background-color: white;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    .book-card:hover {
+        transform: scale(1.03);
+    }
+    .book-title {
+        font-size: 1rem;
+        font-weight: bold;
+        color: #2c3e50;
+        text-decoration: none;
+    }
+    .accuracy {
+        color: gray;
+        font-size: 0.9rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📚 Sistem Rekomendasi Buku & Jurnal")
 
-# ========== Muat Data ==========
+# ========== Muat Data dari Supabase ==========
 @st.cache_data
-def load_data():
-    # Pastikan ini adalah ID file yang benar, bukan folder
-    file_id = "1Dejoa_9jrLf2MBC2UItQiggOf6rqIj2k"
-    url = f"https://drive.google.com/uc?id= {file_id}"
-    output = "katalog_bersih_pre-processed_ulang.csv"
-
-    if not os.path.exists(output):
-        try:
-            st.info("⏳ Mengunduh file dari Google Drive...")
-            gdown.download(url, output, quiet=False)
-        except Exception as e:
-            st.error(f"❌ Gagal mengunduh file: {e}")
-            st.stop()
-
+def load_data_from_supabase():
     try:
-        df = pd.read_csv(output, nrows=50000)
+        response = client.table("katalog_buku").select("*").execute()
+        df = pd.DataFrame(response.data)
+        print(f"➡️ {len(df)} baris ditemukan di Supabase")
+        return df
     except Exception as e:
-        st.error(f"❌ Error membaca file CSV: {e}")
+        st.error(f"❌ Error mengambil data dari Supabase: {e}")
         st.stop()
 
-    required_columns = ["judul_clean", "combined_text", "url_katalog"]
-    for col in required_columns:
-        if col not in df.columns:
-            st.error(f"❌ Kolom '{col}' tidak ditemukan dalam file CSV")
-            st.stop()
+df = load_data_from_supabase()
 
-    df.dropna(subset=required_columns, inplace=True)
-    df.reset_index(drop=True, inplace=True)
+# Pastikan kolom penting ada
+required_columns = ["judul_clean", "subjek_cleaned", "url_katalog"]
+for col in required_columns:
+    if col not in df.columns:
+        st.error(f"❌ Kolom '{col}' tidak ditemukan di database Supabase")
+        st.stop()
 
-    return df
-
-df = load_data()
+# Buat combined_text dari 2 kolom
+df["combined_text"] = df["judul_clean"].fillna("") + " " + df["subjek_cleaned"].fillna("")
+df.reset_index(drop=True, inplace=True)
 
 # ========== TF-IDF Setup ==========
 @st.cache_resource
@@ -61,23 +87,28 @@ def get_book_image(url_katalog):
         response = requests.get(url_katalog, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # Sesuaikan dengan struktur HTML halaman katalog
-        img_tag = soup.find('img', class_='thumbnail')  # Contoh: sesuaikan dengan kelas gambar sebenarnya
+        img_tag = soup.find('img', class_='thumbnail') or soup.find('img', class_='cover')
         if img_tag and 'src' in img_tag.attrs:
             return img_tag['src']
         else:
-            return None
+            return "https://via.placeholder.com/150x220?text=No+Image "
     except Exception as e:
         print(f"Error fetching image for {url_katalog}: {e}")
-        return None
+        return "https://via.placeholder.com/150x220?text=No+Image "
 
-# ========== Cari Rekomendasi ==========
+# ========== Fungsi Rekomendasi Berbasis Dua Kolom ==========
 def get_recommendations(query, top_n=5):
     query = query.strip().lower()
     if not query:
         return []
 
-    matches = df[df["judul_clean"].str.contains(query, case=False, na=False)]
+    # Cari judul atau subjek yang cocok
+    matches_judul = df[df["judul_clean"].str.contains(query, case=False, na=False)]
+    matches_subjek = df[df["subjek_cleaned"].str.contains(query, case=False, na=False)]
+
+    # Gabung hasil
+    matches = pd.concat([matches_judul, matches_subjek]).drop_duplicates(subset=["id"])
+
     if matches.empty:
         return []
 
@@ -85,6 +116,7 @@ def get_recommendations(query, top_n=5):
     scores = list(enumerate(cosine_sim[idx]))
     scores = sorted(scores, key=lambda x: x[1], reverse=True)
 
+    # Hilangkan dokumen yang sama
     filtered_scores = [s for s in scores if s[0] != idx][:top_n]
 
     results = []
@@ -93,26 +125,44 @@ def get_recommendations(query, top_n=5):
             "judul": df.iloc[i]["judul"],
             "url_katalog": df.iloc[i]["url_katalog"],
             "gambar": get_book_image(df.iloc[i]["url_katalog"]),
-            "akurasi": round(score * 100, 2)
+            "akurasi": round(score[1] * 100, 2)
         })
 
     return results
 
+# ========== Today's Catalog Preview (5 Buku Acak) ==========
+st.header("📖 Hari Ini di Katalog Buku")
+cols_today = st.columns(5)
+
+random_indices = random.sample(range(len(df)), min(5, len(df)))
+
+for col, i in zip(cols_today, random_indices):
+    with col:
+        row = df.iloc[i]
+        img_url = get_book_image(row["url_katalog"])
+        st.image(img_url, width=130)
+        st.markdown(f"[{row['judul']}]({row['url_katalog']})", unsafe_allow_html=True)
+
+st.markdown("---")
+
 # ========== UI Streamlit ==========
-# ========== Input Judul + Dropdown Pilihan ==========
-query_raw = st.text_input("Ketik sebagian judul buku...", placeholder="Contoh: Analisa")
+query_raw = st.text_input("🔍 Ketik sebagian judul buku...", placeholder="Contoh: Analisis")
 
-filtered_titles = df[df["judul_clean"].str.contains(query_raw.strip(), case=False, na=False)]["judul"].unique().tolist()
-
-if filtered_titles:
-    selected_title = st.selectbox("Pilih judul lengkap:", filtered_titles)
-else:
-    selected_title = ""
+# Gunakan autocomplete alih-alih dropdown
+filtered_titles = df["judul"].unique().tolist()
+selected_title = st_autocomplete(
+    key="autocomplete_search",
+    label="Pilih judul buku:",
+    options=filtered_titles,
+    placeholder="Masukkan judul buku...",
+    clearable=True,
+    max_options=10  # Batas jumlah opsi yang ditampilkan
+)
 
 show_accuracy = st.checkbox("Tampilkan Akurasi (%)")
 
 # ========== Tombol Cari ==========
-if st.button("🔍 Cari Rekomendasi"):
+if st.button("🔎 Cari Rekomendasi"):
     if not selected_title:
         st.warning("⚠️ Silakan pilih judul dari dropdown.")
     else:
@@ -127,10 +177,10 @@ if st.button("🔍 Cari Rekomendasi"):
 
             for i, book in enumerate(recommendations):
                 with cols[i % 2]:
-                    st.markdown(f"### {book['judul']}")
-                    if book["gambar"]:
-                        st.image(book["gambar"], width=150)
+                    st.markdown('<div class="book-card">', unsafe_allow_html=True)
+                    st.image(book["gambar"], width=150)
+                    st.markdown(f"<a class='book-title' href='{book['url_katalog']}' target='_blank'>{book['judul']}</a>", unsafe_allow_html=True)
                     if show_accuracy:
-                        st.markdown(f"**Akurasi**: {book['akurasi']}%")
-                    st.markdown(f"[Lihat Detail]({book['url_katalog']})", unsafe_allow_html=True)
+                        st.markdown(f"<div class='accuracy'>Akurasi: {book['akurasi']}%</div>", unsafe_allow_html=True)
+                    st.markdown('</div>')
                     st.markdown("---")

@@ -61,7 +61,7 @@ def load_data_from_supabase():
 df = load_data_from_supabase()
 
 # Pastikan kolom penting ada
-required_columns = ["judul_clean", "subjek_cleaned", "url_katalog"]
+required_columns = ["judul_clean", "subjek_clean", "url_katalog"]
 for col in required_columns:
     if col not in df.columns:
         st.error(f"❌ Kolom '{col}' tidak ditemukan di database Supabase")

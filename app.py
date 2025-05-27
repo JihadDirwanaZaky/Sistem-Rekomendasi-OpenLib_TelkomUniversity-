@@ -16,6 +16,53 @@ client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ========== Judul Aplikasi ==========
 st.set_page_config(page_title="Sistem Rekomendasi Buku", layout="wide")
+st.markdown("""
+<style>
+    body {
+        background-color: #f0f4f8;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .book-card {
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+        margin-bottom: 10px;
+    }
+    .book-card:hover {
+        transform: scale(1.02);
+    }
+    .book-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #2b7aef;
+        text-decoration: none;
+    }
+    .accuracy {
+        font-size: 0.9rem;
+        color: #555;
+    }
+    .accuracy-tag {
+        font-size: 0.85rem;
+        color: #1e90ff;
+        background-color: #e0f0ff;
+        padding: 4px 10px;
+        border-radius: 20px;
+        float: right;
+    }
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #1e90ff;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        border-left: 4px solid #1e90ff;
+        padding-left: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📚 Sistem Rekomendasi Buku & Jurnal")
 
 # ========== Muat Data dari Supabase ==========
@@ -70,9 +117,7 @@ def get_recommendations(query, top_n=5):
     if not query:
         return []
 
-    # Cari judul yang cocok berdasarkan combined_text
-    matches = df[df["combined_text"].str.contains(query, case=False, na=False)]
-    
+    matches = df[df["judul_clean"].str.contains(query, case=False, na=False)]
     if matches.empty:
         return []
 
@@ -80,7 +125,6 @@ def get_recommendations(query, top_n=5):
     scores = list(enumerate(cosine_sim[idx]))
     scores = sorted(scores, key=lambda x: x[1], reverse=True)
 
-    # Hilangkan dokumen yang sama
     filtered_scores = [s for s in scores if s[0] != idx][:top_n]
 
     results = []
@@ -95,7 +139,7 @@ def get_recommendations(query, top_n=5):
     return results
 
 # ========== Today's Catalog Preview (5 Buku Acak) ==========
-st.header("📖 Hari Ini di Katalog Buku")
+st.markdown('<div class="section-header">📖 Hari Ini di Katalog Buku</div>', unsafe_allow_html=True)
 cols_today = st.columns(5)
 
 random_indices = random.sample(range(len(df)), min(5, len(df)))
@@ -109,83 +153,25 @@ for col, i in zip(cols_today, random_indices):
 
 st.markdown("---")
 
-# ========== UI Streamlit ==========
+# ========== UI Streamlit - Dropdown Pencarian ==========
+st.markdown('<div class="section-header">🔍 Cari Rekomendasi Buku</div>', unsafe_allow_html=True)
 
-# === CSS Styling ===
-st.markdown("""
-<style>
-    .autocomplete-container {
-        position: relative;
-    }
-    .autocomplete-input {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 16px;
-    }
-    .autocomplete-results {
-        position: absolute;
-        z-index: 1;
-        max-height: 200px;
-        overflow-y: auto;
-        border: 1px solid #ccc;
-        background-color: white;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    }
-    .autocomplete-result {
-        padding: 10px;
-        cursor: pointer;
-    }
-    .autocomplete-result:hover {
-        background-color: #f1f1f1;
-    }
-</style>
-""", unsafe_allow_html=True)
+query_raw = st.text_input("Ketik sebagian judul buku...", placeholder="Contoh: Analisis")
 
-# === Autocomplete Search Box ===
-st.markdown("""
-<div class="autocomplete-container">
-    <input type="text" id="autocomplete-input" placeholder="🔍 Ketik sebagian judul buku..." />
-    <div id="autocomplete-results" class="autocomplete-results"></div>
-</div>
-<script>
-    const judulList = JSON.parse(`""" + str(df["judul_clean"].tolist()) + """`);
-    const inputElement = document.getElementById("autocomplete-input");
-    const resultsContainer = document.getElementById("autocomplete-results");
+# Filter judul yang cocok dengan input pengguna
+if query_raw:
+    filtered_titles = df[df["judul_clean"].str.contains(query_raw.strip(), case=False, na=False)]["judul"].unique().tolist()
+else:
+    filtered_titles = df["judul"].sample(n=min(20, len(df))).unique().tolist()
 
-    inputElement.addEventListener("input", function() {
-        const query = this.value.toLowerCase();
-        resultsContainer.innerHTML = "";
-
-        if (!query) {
-            return;
-        }
-
-        const suggestions = judulList.filter(judul => judul.toLowerCase().includes(query));
-        suggestions.forEach(judul => {
-            const resultDiv = document.createElement("div");
-            resultDiv.className = "autocomplete-result";
-            resultDiv.textContent = judul;
-            resultDiv.addEventListener("click", () => {
-                inputElement.value = judul;
-                resultsContainer.innerHTML = "";
-            });
-            resultsContainer.appendChild(resultDiv);
-        });
-    });
-</script>
-""", unsafe_allow_html=True)
-
-# === Ambil Input dari Autocomplete ===
-selected_title = st.session_state.get("selected_title", "")
+selected_title = st.selectbox("Pilih judul dari daftar:", options=filtered_titles[:50])
 
 show_accuracy = st.checkbox("Tampilkan Akurasi (%)")
 
-# === Tombol Cari ===
+# ========== Tombol Cari ==========
 if st.button("🔎 Cari Rekomendasi"):
     if not selected_title:
-        st.warning("⚠️ Silakan pilih judul dari daftar.")
+        st.warning("⚠️ Silakan pilih judul dari dropdown.")
     else:
         with st.spinner("Memuat hasil..."):
             recommendations = get_recommendations(selected_title)
@@ -202,6 +188,6 @@ if st.button("🔎 Cari Rekomendasi"):
                     st.image(book["gambar"], width=150)
                     st.markdown(f"<a class='book-title' href='{book['url_katalog']}' target='_blank'>{book['judul']}</a>", unsafe_allow_html=True)
                     if show_accuracy:
-                        st.markdown(f"<div class='accuracy'>Akurasi: {book['akurasi']}%</div>", unsafe_allow_html=True)
+                        st.markdown(f"<span class='accuracy'>Akurasi:</span> <span class='accuracy-tag'>{book['akurasi']}%</span>", unsafe_allow_html=True)
                     st.markdown('</div>')
                     st.markdown("---")

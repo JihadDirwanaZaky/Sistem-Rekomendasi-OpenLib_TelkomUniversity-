@@ -1,5 +1,4 @@
 import streamlit as st
-from streamlit_autocomplete import st_autocomplete
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -9,42 +8,13 @@ import random
 from supabase import create_client, Client
 
 # === Konfigurasi Supabase ===
-SUPABASE_URL = "https://vmmzsghhyrtddnsmoscw.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtbXpzZ2hoeXJ0ZGRuc21vc2N3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4NzYyNTYsImV4cCI6MjA2MzQ1MjI1Nn0.V6G6FTo5hSjYtmGzoHiJz1ez_tcFDhpwkn9qyQlFa0Q"
+SUPABASE_URL = "https://vmmzsghhyrtddnsmoscw.supabase.co "
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xxxxxx"
 
 client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ========== Judul Aplikasi ==========
 st.set_page_config(page_title="Sistem Rekomendasi Buku", layout="wide")
-st.markdown("""
-<style>
-    body {
-        background-color: #f9f9f9;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .book-card {
-        background-color: white;
-        padding: 10px;
-        border-radius: 8px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
-    }
-    .book-card:hover {
-        transform: scale(1.03);
-    }
-    .book-title {
-        font-size: 1rem;
-        font-weight: bold;
-        color: #2c3e50;
-        text-decoration: none;
-    }
-    .accuracy {
-        color: gray;
-        font-size: 0.9rem;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 st.title("📚 Sistem Rekomendasi Buku & Jurnal")
 
 # ========== Muat Data dari Supabase ==========
@@ -62,15 +32,11 @@ def load_data_from_supabase():
 df = load_data_from_supabase()
 
 # Pastikan kolom penting ada
-required_columns = ["judul_clean", "subjek_clean", "url_katalog"]
+required_columns = ["judul_clean", "url_katalog", "combined_text"]
 for col in required_columns:
     if col not in df.columns:
         st.error(f"❌ Kolom '{col}' tidak ditemukan di database Supabase")
         st.stop()
-
-# Buat combined_text dari 2 kolom
-df["combined_text"] = df["judul_clean"].fillna("") + " " + df["subjek_clean"].fillna("")
-df.reset_index(drop=True, inplace=True)
 
 # ========== TF-IDF Setup ==========
 @st.cache_resource
@@ -97,19 +63,15 @@ def get_book_image(url_katalog):
         print(f"Error fetching image for {url_katalog}: {e}")
         return "https://via.placeholder.com/150x220?text=No+Image "
 
-# ========== Fungsi Rekomendasi Berbasis Dua Kolom ==========
+# ========== Fungsi Rekomendasi Berbasis Satu Kolom (combined_text) ==========
 def get_recommendations(query, top_n=5):
     query = query.strip().lower()
     if not query:
         return []
 
-    # Cari judul atau subjek yang cocok
-    matches_judul = df[df["judul_clean"].str.contains(query, case=False, na=False)]
-    matches_subjek = df[df["subjek_clean"].str.contains(query, case=False, na=False)]
-
-    # Gabung hasil
-    matches = pd.concat([matches_judul, matches_subjek]).drop_duplicates(subset=["id"])
-
+    # Cari judul yang cocok berdasarkan combined_text
+    matches = df[df["combined_text"].str.contains(query, case=False, na=False)]
+    
     if matches.empty:
         return []
 
@@ -147,25 +109,82 @@ for col, i in zip(cols_today, random_indices):
 st.markdown("---")
 
 # ========== UI Streamlit ==========
-query_raw = st.text_input("🔍 Ketik sebagian judul buku...", placeholder="Contoh: Analisis")
 
-# Gunakan autocomplete alih-alih dropdown
-filtered_titles = df["judul"].unique().tolist()
-selected_title = st_autocomplete(
-    key="autocomplete_search",
-    label="Pilih judul buku:",
-    options=filtered_titles,
-    placeholder="Masukkan judul buku...",
-    clearable=True,
-    max_options=10  # Batas jumlah opsi yang ditampilkan
-)
+# === CSS Styling ===
+st.markdown("""
+<style>
+    .autocomplete-container {
+        position: relative;
+    }
+    .autocomplete-input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    .autocomplete-results {
+        position: absolute;
+        z-index: 1;
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        background-color: white;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+    .autocomplete-result {
+        padding: 10px;
+        cursor: pointer;
+    }
+    .autocomplete-result:hover {
+        background-color: #f1f1f1;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# === Autocomplete Search Box ===
+st.markdown("""
+<div class="autocomplete-container">
+    <input type="text" id="autocomplete-input" placeholder="🔍 Ketik sebagian judul buku..." />
+    <div id="autocomplete-results" class="autocomplete-results"></div>
+</div>
+<script>
+    const judulList = JSON.parse(`""" + str(df["judul_clean"].tolist()) + """`);
+    const inputElement = document.getElementById("autocomplete-input");
+    const resultsContainer = document.getElementById("autocomplete-results");
+
+    inputElement.addEventListener("input", function() {
+        const query = this.value.toLowerCase();
+        resultsContainer.innerHTML = "";
+
+        if (!query) {
+            return;
+        }
+
+        const suggestions = judulList.filter(judul => judul.toLowerCase().includes(query));
+        suggestions.forEach(judul => {
+            const resultDiv = document.createElement("div");
+            resultDiv.className = "autocomplete-result";
+            resultDiv.textContent = judul;
+            resultDiv.addEventListener("click", () => {
+                inputElement.value = judul;
+                resultsContainer.innerHTML = "";
+            });
+            resultsContainer.appendChild(resultDiv);
+        });
+    });
+</script>
+""", unsafe_allow_html=True)
+
+# === Ambil Input dari Autocomplete ===
+selected_title = st.session_state.get("selected_title", "")
 
 show_accuracy = st.checkbox("Tampilkan Akurasi (%)")
 
-# ========== Tombol Cari ==========
+# === Tombol Cari ===
 if st.button("🔎 Cari Rekomendasi"):
     if not selected_title:
-        st.warning("⚠️ Silakan pilih judul dari dropdown.")
+        st.warning("⚠️ Silakan pilih judul dari daftar.")
     else:
         with st.spinner("Memuat hasil..."):
             recommendations = get_recommendations(selected_title)

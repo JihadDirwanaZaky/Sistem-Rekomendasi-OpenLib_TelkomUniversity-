@@ -118,6 +118,7 @@ def get_recommendations(query, top_n=5):
         return []
 
     matches = df[df["judul_clean"].str.contains(query, case=False, na=False)]
+    
     if matches.empty:
         return []
 
@@ -125,15 +126,16 @@ def get_recommendations(query, top_n=5):
     scores = list(enumerate(cosine_sim[idx]))
     scores = sorted(scores, key=lambda x: x[1], reverse=True)
 
+    # Hilangkan dokumen itu sendiri
     filtered_scores = [s for s in scores if s[0] != idx][:top_n]
 
     results = []
-    for i, score in filtered_scores:
+    for index, score in filtered_scores:
         results.append({
-            "judul": df.iloc[i]["judul"],
-            "url_katalog": df.iloc[i]["url_katalog"],
-            "gambar": get_book_image(df.iloc[i]["url_katalog"]),
-            "akurasi": round(score[1] * 100, 2)
+            "judul": df.iloc[index]["judul"],
+            "url_katalog": df.iloc[index]["url_katalog"],
+            "gambar": get_book_image(df.iloc[index]["url_katalog"]),
+            "akurasi": round(score * 100, 2)
         })
 
     return results

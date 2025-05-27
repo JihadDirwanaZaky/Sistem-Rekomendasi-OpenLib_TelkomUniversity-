@@ -68,7 +68,7 @@ for col in required_columns:
         st.stop()
 
 # Buat combined_text dari 2 kolom
-df["combined_text"] = df["judul_clean"].fillna("") + " " + df["subjek_cleaned"].fillna("")
+df["combined_text"] = df["judul_clean"].fillna("") + " " + df["subjek_clean"].fillna("")
 df.reset_index(drop=True, inplace=True)
 
 # ========== TF-IDF Setup ==========
@@ -104,7 +104,7 @@ def get_recommendations(query, top_n=5):
 
     # Cari judul atau subjek yang cocok
     matches_judul = df[df["judul_clean"].str.contains(query, case=False, na=False)]
-    matches_subjek = df[df["subjek_cleaned"].str.contains(query, case=False, na=False)]
+    matches_subjek = df[df["subjek_clean"].str.contains(query, case=False, na=False)]
 
     # Gabung hasil
     matches = pd.concat([matches_judul, matches_subjek]).drop_duplicates(subset=["id"])

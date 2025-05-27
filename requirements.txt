@@ -1,6 +1,6 @@
 streamlit
-scikit-learn
 pandas
+scikit-learn
 beautifulsoup4
 requests
 supabase

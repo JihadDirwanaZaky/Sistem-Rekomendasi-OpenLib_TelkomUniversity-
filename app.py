@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_autocomplete import st_autocomplete
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity

@@ -4,4 +4,3 @@ pandas
 beautifulsoup4
 requests
 supabase
-streamlit_autocomplete

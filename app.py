@@ -16,7 +16,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ========== Halaman Streamlit ==========
-st.set_page_config(page_title="📚 Sistem Rekomendasi Buku", layout="wide")
+st.set_page_config(page_title="📚 Sistem Rekomendasi Buku Open Library Telkom University", layout="wide")
 
 st.markdown("""
 <style>
@@ -44,7 +44,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📚 Sistem Rekomendasi Buku & Jurnal")
+st.title("📚 Sistem Rekomendasi Buku & Jurnal Open Library Telkom University")
 
 # ========== Load Data dari Supabase ==========
 @st.cache_data(ttl=3600)

@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import time
 import requests
+from streamlit_autorefresh import st_autorefresh
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity

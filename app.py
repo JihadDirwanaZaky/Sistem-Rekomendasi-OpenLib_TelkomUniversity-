@@ -150,8 +150,8 @@ for col, idx in zip(cols, sample_indices):
         st.image(get_book_image(book['url_katalog']), width=120)
         st.markdown(f"[{book['judul']}]({book['url_katalog']})", unsafe_allow_html=True)
 
-# Auto-refresh setiap 15 detik
-st_autorefresh(interval=15000, limit=None, key="refresh")
+# Auto-refresh setiap 60 detik
+st_autorefresh(interval=60000, limit=None, key="refresh")
 
 st.markdown("---")
 

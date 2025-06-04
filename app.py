@@ -151,7 +151,7 @@ for col, idx in zip(cols, sample_indices):
         st.markdown(f"[{book['judul']}]({book['url_katalog']})", unsafe_allow_html=True)
 
 # Auto-refresh setiap 60 detik
-st_autorefresh(interval=60000, limit=None, key="refresh")
+#st_autorefresh(interval=60000, limit=None, key="refresh")
 
 st.markdown("---")
 

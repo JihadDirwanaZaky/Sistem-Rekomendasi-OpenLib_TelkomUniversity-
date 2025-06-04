@@ -59,7 +59,7 @@ def load_data_from_supabase():
 df = load_data_from_supabase()
 
 # Pastikan kolom penting tersedia
-required_columns = ["judul", "judul_clean", "url_katalog", "klasifikasi_clean", "jenis_clean", "subjek_clean", "combined_text"]
+required_columns = ["judul", "judul_clean", "url_katalog", "klasifikasi_clean", "jenis", "subjek_clean", "combined_text"]
 for col in required_columns:
     if col not in df.columns:
         st.error(f"❌ Kolom '{col}' tidak ditemukan dalam tabel 'katalog_buku'")

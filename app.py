@@ -116,7 +116,7 @@ def get_recommendations(query, top_n=5):
 def get_by_filter(kls, jenis, subjek, ref_judul):
     filtered = df[
         (df["klasifikasi_clean"] == kls) &
-        (df["jenis_clean"] == jenis) &
+        (df["jenis"] == jenis) &
         (df["subjek_clean"] == subjek)
     ]
     if filtered.empty:
@@ -201,7 +201,7 @@ with col1:
     klasifikasi = st.selectbox("Klasifikasi", options=sorted(df["klasifikasi_clean"].dropna().unique()))
 
 with col2:
-    jenis = st.selectbox("Jenis", options=sorted(df["jenis_clean"].dropna().unique()))
+    jenis = st.selectbox("Jenis", options=sorted(df["jenis"].dropna().unique()))
 
 with col3:
     subjek = st.selectbox("Subjek", options=sorted(df["subjek_clean"].dropna().unique()))

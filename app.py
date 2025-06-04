@@ -138,20 +138,22 @@ def get_by_filter(kls, jenis, subjek, ref_judul):
         "akurasi": round(sim_scores[j][1] * 100, 2)
     } for j, i in enumerate(top_indices)]
 
-# ========== Carousel 5 Buku Acak ==========
+# ========== Carousel 5 Buku Statis ==========
 st.subheader("🎯 Hari Ini di Katalog")
 cols = st.columns(5)
-random.seed(int(time.time()) % 60)
-sample_indices = random.sample(range(len(df)), min(5, len(df)))
 
-for col, idx in zip(cols, sample_indices):
-    book = df.iloc[idx]
+# Tetapkan seed agar hasil tetap saat refresh
+random.seed(42)  # Gunakan seed tetap agar hasil acak tetap sama tiap kali halaman dimuat
+
+# Ambil 5 indeks buku acak dari df
+static_sample_indices = random.sample(range(len(df)), min(5, len(df)))
+
+# Tampilkan buku berdasarkan indeks yang sudah ditentukan
+for col, idx in zip(cols, static_sample_indices):
     with col:
+        book = df.iloc[idx]
         st.image(get_book_image(book['url_katalog']), width=120)
         st.markdown(f"[{book['judul']}]({book['url_katalog']})", unsafe_allow_html=True)
-
-# Auto-refresh setiap 60 detik
-#st_autorefresh(interval=60000, limit=None, key="refresh")
 
 st.markdown("---")
 

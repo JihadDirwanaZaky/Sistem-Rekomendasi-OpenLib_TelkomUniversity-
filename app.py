@@ -18,31 +18,31 @@ st.set_page_config(page_title="📚 Sistem Rekomendasi Buku", layout="wide")
 
 # ========= Custom CSS for white background and clear text =========
 st.markdown("""
-<style>
-    html, body, .main {
-        background-color: white !important;
-        color: #2c3e50 !important;
-        font-family: 'Segoe UI', sans-serif;
-    }
-    .book-title {
-        font-weight: bold;
-        font-size: 1rem;
-        color: #1a237e;
-    }
-    .accuracy {
-        font-size: 0.9rem;
-        color: #555;
-    }
-    .recommend-button {
-        background-color: #e8f0fe;
-        color: #1a73e8;
-        border-radius: 4px;
-        padding: 5px 8px;
-        margin-top: 5px;
-        display: inline-block;
-    }
-</style>
+    <style>
+        html, body, .stApp {
+            background-color: #ffffff !important;
+            color: #2c3e50 !important;
+        }
+        .book-title {
+            font-weight: bold;
+            font-size: 1rem;
+            color: #1a237e;
+        }
+        .accuracy {
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .recommend-button {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+            border-radius: 4px;
+            padding: 5px 8px;
+            margin-top: 5px;
+            display: inline-block;
+        }
+    </style>
 """, unsafe_allow_html=True)
+
 
 st.title("📚 Sistem Rekomendasi Buku & Jurnal Open Library Telkom University")
 

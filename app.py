@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+import random
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -12,8 +13,37 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ========= Streamlit Setup =========
+# ========= Streamlit Page Config =========
 st.set_page_config(page_title="📚 Sistem Rekomendasi Buku", layout="wide")
+
+# ========= Custom CSS for white background and clear text =========
+st.markdown("""
+<style>
+    html, body, .main {
+        background-color: white !important;
+        color: #2c3e50 !important;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .book-title {
+        font-weight: bold;
+        font-size: 1rem;
+        color: #1a237e;
+    }
+    .accuracy {
+        font-size: 0.9rem;
+        color: #555;
+    }
+    .recommend-button {
+        background-color: #e8f0fe;
+        color: #1a73e8;
+        border-radius: 4px;
+        padding: 5px 8px;
+        margin-top: 5px;
+        display: inline-block;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📚 Sistem Rekomendasi Buku & Jurnal Open Library Telkom University")
 
 # ========= Load Dataset =========
@@ -42,7 +72,7 @@ def build_model():
 
 vectorizer, tfidf_matrix, cosine_sim = build_model()
 
-# ========= Helper: Ambil Gambar =========
+# ========= Ambil Gambar =========
 def get_book_image(url_katalog):
     try:
         response = requests.get(url_katalog, timeout=5)
@@ -75,18 +105,31 @@ def get_recommendations_by_title(title, top_n=5):
 
     return results
 
-# ========= UI =========
+# ========= Random Static Catalog Preview =========
+if "preview_books" not in st.session_state:
+    st.session_state.preview_books = df.sample(5, random_state=42)
+
+st.subheader("🎯 Try These Catalogs")
+cols = st.columns(5)
+for col, (_, book) in zip(cols, st.session_state.preview_books.iterrows()):
+    with col:
+        st.image(get_book_image(book["url_katalog"]), width=110)
+        st.markdown(f"<a class='book-title' href='{book['url_katalog']}'>{book['judul']}</a>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# ========= Pencarian dan Rekomendasi =========
 if "judul_input" not in st.session_state:
     st.session_state.judul_input = ""
 
-st.subheader("🔍 Cari berdasarkan judul")
+st.subheader("🔍 Cari Rekomendasi Berdasarkan Judul")
 
-judul_input = st.text_input("Masukkan kata kunci judul:", value=st.session_state.judul_input, key="judul_text")
+judul_input = st.text_input("Ketik sebagian judul:", value=st.session_state.judul_input, key="judul_text")
 filtered_judul_list = df[df["judul_clean"].str.contains(judul_input.strip().lower(), na=False)]["judul"].unique().tolist()
 
 selected_title = None
 if filtered_judul_list:
-    selected_title = st.selectbox("Pilih judul:", filtered_judul_list)
+    selected_title = st.selectbox("Pilih Judul:", filtered_judul_list)
 
 if st.button("📚 Cari Rekomendasi"):
     if not selected_title:
@@ -103,10 +146,10 @@ if st.button("📚 Cari Rekomendasi"):
             for i, book in enumerate(rekomendasi):
                 with cols[i % 2]:
                     st.image(book["gambar"], width=130)
-                    st.markdown(f"**[{book['judul']}]({book['url']})**", unsafe_allow_html=True)
-                    st.caption(f"Akurasi: {book['akurasi']}%")
+                    st.markdown(f"<a class='book-title' href='{book['url']}' target='_blank'>{book['judul']}</a>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='accuracy'>Akurasi: {book['akurasi']}%</div>", unsafe_allow_html=True)
 
                     # Tombol Recommend by this
-                    if st.button(f"📎 Recommend by this", key=f"recom_btn_{i}"):
+                    if st.button("📎 Recommend by this", key=f"recom_btn_{i}"):
                         st.session_state.judul_input = book["judul"]
                         st.experimental_rerun()

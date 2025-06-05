@@ -7,8 +7,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from supabase import create_client, Client
 
 # ========= Supabase Config =========
-SUPABASE_URL = "https://vmmzsghhyrtddnsmoscw.supabase.co"
-SUPABASE_KEY = "YOUR_SUPABASE_KEY"  # Ganti dengan kunci rahasia kamu
+SUPABASE_URL = "https://vmmzsghhyrtddnsmoscw.supabase.co" 
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtbXpzZ2hoeXJ0ZGRuc21vc2N3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4NzYyNTYsImV4cCI6MjA2MzQ1MjI1Nn0.V6G6FTo5hSjYtmGzoHiJz1ez_tcFDhpwkn9qyQlFa0Q"
 
 client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 

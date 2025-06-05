@@ -88,45 +88,44 @@ def get_recommendations(query, top_n=5):
 # ========== Form Pencarian ==========
 st.subheader("🔍 Cari Rekomendasi")
 
-with st.form(key="search_form"):
-    search_type = st.radio("Cari berdasarkan:", ["Judul", "URL"], horizontal=True)
-    query = st.text_input("Masukkan kata kunci...")
+search_type = st.radio("Cari berdasarkan:", ["Judul", "URL"], horizontal=True)
+query = st.text_input("Masukkan kata kunci...")
 
-    # Tombol submit
-    submitted = st.form_submit_button("Cari Rekomendasi")
+filtered_options = []
 
-if submitted:
-    if not query:
-        st.warning("⚠️ Silakan masukkan kata kunci.")
+if query:
+    if search_type == "Judul":
+        filtered_options = df[df["judul_clean"].str.contains(query.strip(), case=False, na=False)]["judul"].unique()
+    else:
+        filtered_options = df[df["url_katalog"].str.contains(query.strip(), case=False, na=False)]["url_katalog"].unique()
+
+selected = st.selectbox("Pilih dari hasil pencarian:", filtered_options) if len(filtered_options) > 0 else None
+
+if st.button("Cari Rekomendasi"):
+    if not selected:
+        st.warning("⚠️ Silakan pilih judul atau URL dari dropdown.")
     else:
         if search_type == "Judul":
-            filtered_options = df[df["judul_clean"].str.contains(query.strip(), case=False, na=False)]["judul"].unique()
+            hasil = get_recommendations(selected)
         else:
-            filtered_options = df[df["url_katalog"].str.contains(query.strip(), case=False, na=False)]["url_katalog"].unique()
+            match = df[df["url_katalog"] == selected]
+            if match.empty:
+                st.error("❌ URL tidak ditemukan dalam database.")
+                st.stop()
+            hasil = get_recommendations(match["judul"].iloc[0])
 
-        if len(filtered_options) == 0:
-            st.warning("⚠️ Tidak ada hasil yang cocok dengan kata kunci tersebut.")
+        if not hasil:
+            st.error("❌ Tidak ada rekomendasi ditemukan.")
         else:
-            selected = st.selectbox("Pilih dari daftar:", filtered_options)
-            if not selected:
-                st.warning("⚠️ Silakan pilih judul/url dari daftar.")
-            else:
-                if search_type == "Judul":
-                    hasil = get_recommendations(selected)
-                else:
-                    hasil = get_recommendations(df[df["url_katalog"] == selected]["judul"].iloc[0])
+            st.success(f"Rekomendasi untuk: _{selected}_")
+            cols = st.columns(2)
 
-                if not hasil:
-                    st.error("❌ Tidak ada rekomendasi ditemukan.")
-                else:
-                    st.success(f"Rekomendasi untuk: _{selected}_")
-                    cols = st.columns(2)
+            for i, item in enumerate(hasil):
+                with cols[i % 2]:
+                    st.markdown('<div class="book-card">', unsafe_allow_html=True)
+                    st.image(item["gambar"], width=130)
+                    st.markdown(f"<a class='book-title' href='{item['url']}' target='_blank'>{item['judul']}</a>", unsafe_allow_html=True)
+                    st.markdown(f"<span class='accuracy'>Akurasi: {item['akurasi']}%</span>", unsafe_allow_html=True)
+                    st.markdown("</div>")
+                    st.markdown("---")
 
-                    for i, item in enumerate(hasil):
-                        with cols[i % 2]:
-                            st.markdown('<div class="book-card">', unsafe_allow_html=True)
-                            st.image(item["gambar"], width=130)
-                            st.markdown(f"<a class='book-title' href='{item['url']}'>{item['judul']}</a>", unsafe_allow_html=True)
-                            st.markdown(f"<span class='accuracy'>Akurasi: {item['akurasi']}%</span>", unsafe_allow_html=True)
-                            st.markdown("</div>")
-                            st.markdown("---")

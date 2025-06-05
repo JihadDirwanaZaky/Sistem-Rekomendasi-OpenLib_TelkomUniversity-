@@ -1,12 +1,8 @@
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
-import pandas as pd
-import random
-import time
-import requests
-from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import requests
+from bs4 import BeautifulSoup
 from supabase import create_client, Client
 
 # ========== Konfigurasi Supabase ==========
@@ -16,7 +12,7 @@ SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ========== Halaman Streamlit ==========
-st.set_page_config(page_title="📚 Sistem Rekomendasi Buku Open Library Telkom University", layout="wide")
+st.set_page_config(page_title="📚 Sistem Rekomendasi Buku & Jurnal", layout="wide")
 
 st.markdown("""
 <style>
@@ -40,6 +36,15 @@ st.markdown("""
     .accuracy {
         color: gray;
         font-size: 0.9rem;
+    }
+    .recommend-btn {
+        background-color: #2b7aef;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 5px;
+        margin-top: 5px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -92,6 +97,7 @@ def get_recommendations(query, top_n=5):
     query = query.strip().lower()
     if not query:
         return []
+
     matches = df[df["judul_clean"].str.contains(query, case=False, na=False)]
     if matches.empty:
         return []
@@ -111,32 +117,6 @@ def get_recommendations(query, top_n=5):
         })
 
     return results
-
-# ========== Fungsi Rekomendasi Berdasarkan Filter ==========
-def get_by_filter(kls, jenis, subjek, ref_judul):
-    filtered = df[
-        (df["klasifikasi_clean"] == kls) &
-        (df["jenis"] == jenis) &
-        (df["subjek_clean"] == subjek)
-    ]
-    if filtered.empty:
-        return []
-
-    referensi = df[df["judul"] == ref_judul]
-    if referensi.empty:
-        return []
-
-    idx_ref = referensi.index[0]
-    sim_scores = list(enumerate(cosine_sim[idx_ref][filtered.index]))
-    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-    top_indices = [i[0] for i in sim_scores[:5]]
-
-    return [{
-        "judul": df.iloc[i]["judul"],
-        "url": df.iloc[i]["url_katalog"],
-        "gambar": get_book_image(df.iloc[i]["url_katalog"]),
-        "akurasi": round(sim_scores[j][1] * 100, 2)
-    } for j, i in enumerate(top_indices)]
 
 # ========== Carousel 5 Buku Statis ==========
 st.subheader("🎯 Hari Ini di Katalog")
@@ -184,44 +164,35 @@ if st.button("🔎 Cari Rekomendasi"):
             st.error("❌ Tidak ada rekomendasi ditemukan.")
         else:
             st.success(f"Rekomendasi untuk: _{selected}_")
-            for item in hasil:
+            cols = st.columns(2)
+
+            for i, item in enumerate(hasil):
+                with cols[i % 2]:
+                    st.markdown('<div class="book-card">', unsafe_allow_html=True)
+                    st.image(item["gambar"], width=130)
+                    st.markdown(f"<a class='book-title' href='{item['url']}'>{item['judul']}</a>", unsafe_allow_html=True)
+                    st.markdown(f"<span class='accuracy'>Akurasi: {item['akurasi']}%</span>", unsafe_allow_html=True)
+
+                    # Tombol "Rekomendasikan Berdasarkan Ini"
+                    if st.button("💡 Rekomendasikan Berdasarkan Ini", key=f"recommend_{i}"):
+                        st.session_state.selected_title = item["judul"]
+
+                    st.markdown("</div>")
+                    st.markdown("---")
+
+# ========== Pilih dari Daftar Otomatis ==========
+if "selected_title" in st.session_state:
+    st.info(f"Buku dipilih: _{st.session_state.selected_title}_")
+    recommendations = get_recommendations(st.session_state.selected_title)
+    if recommendations:
+        st.success(f"Rekomendasi untuk: _{st.session_state.selected_title}_")
+        cols = st.columns(2)
+
+        for i, item in enumerate(recommendations):
+            with cols[i % 2]:
                 st.markdown('<div class="book-card">', unsafe_allow_html=True)
                 st.image(item["gambar"], width=130)
                 st.markdown(f"<a class='book-title' href='{item['url']}'>{item['judul']}</a>", unsafe_allow_html=True)
-                st.markdown(f"<div class='accuracy'>Akurasi: {item['akurasi']}%</div>", unsafe_allow_html=True)
+                st.markdown(f"<span class='accuracy'>Akurasi: {item['akurasi']}%</span>", unsafe_allow_html=True)
                 st.markdown("</div>")
                 st.markdown("---")
-
-st.markdown("---")
-
-# ========== Rekomendasi Berdasarkan Kombinasi Klasifikasi ==========
-st.subheader("🧠 Rekomendasi Berdasarkan Kategori & Referensi")
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    klasifikasi = st.selectbox("Klasifikasi", options=sorted(df["klasifikasi_clean"].dropna().unique()))
-
-with col2:
-    jenis = st.selectbox("Jenis", options=sorted(df["jenis"].dropna().unique()))
-
-with col3:
-    subjek = st.selectbox("Subjek", options=sorted(df["subjek_clean"].dropna().unique()))
-
-with col4:
-    ref_judul = st.selectbox("Buku Referensi", options=df["judul"].unique())
-
-if st.button("Tampilkan Rekomendasi Berdasarkan Kategori"):
-    hasil = get_by_filter(klasifikasi, jenis, subjek, ref_judul)
-
-    if not hasil:
-        st.error("❌ Tidak ada rekomendasi ditemukan.")
-    else:
-        st.success(f"Rekomendasi untuk kategori {klasifikasi} - {jenis} - {subjek}")
-        for item in hasil:
-            st.markdown('<div class="book-card">', unsafe_allow_html=True)
-            st.image(item["gambar"], width=130)
-            st.markdown(f"<a class='book-title' href='{item['url']}'>{item['judul']}</a>", unsafe_allow_html=True)
-            st.markdown(f"<div class='accuracy'>Akurasi: {item['akurasi']}%</div>", unsafe_allow_html=True)
-            st.markdown("</div>")
-            st.markdown("---")

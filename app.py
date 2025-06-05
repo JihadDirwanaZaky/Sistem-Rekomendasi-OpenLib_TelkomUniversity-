@@ -88,27 +88,38 @@ def get_recommendations(query, top_n=5):
 # ========== Form Pencarian ==========
 st.subheader("🔍 Cari Rekomendasi")
 
-search_type = st.radio("Cari berdasarkan:", ["Judul", "URL"], horizontal=True)
-query = st.text_input("Masukkan kata kunci...")
+search_type = st.radio("Cari berdasarkan:", ["Judul", "URL"], horizontal=True, key="search_type")
+query = st.text_input("Masukkan kata kunci...", key="query_input")
 
-filtered_options = []
+# Inisialisasi session state
+if "filtered_options" not in st.session_state:
+    st.session_state.filtered_options = []
+if "selected_item" not in st.session_state:
+    st.session_state.selected_item = None
 
-if query:
-    if search_type == "Judul":
-        filtered_options = df[df["judul_clean"].str.contains(query.strip(), case=False, na=False)]["judul"].unique()
-    else:
-        filtered_options = df[df["url_katalog"].str.contains(query.strip(), case=False, na=False)]["url_katalog"].unique()
-
-selected = st.selectbox("Pilih dari hasil pencarian:", filtered_options) if len(filtered_options) > 0 else None
-
-if st.button("Cari Rekomendasi"):
-    if not selected:
-        st.warning("⚠️ Silakan pilih judul atau URL dari dropdown.")
+# Tombol 1: Cari Judul/URL → Memperbarui dropdown
+if st.button("🔍 Cari Judul"):
+    if not query:
+        st.warning("⚠️ Silakan masukkan kata kunci.")
     else:
         if search_type == "Judul":
-            hasil = get_recommendations(selected)
+            st.session_state.filtered_options = df[df["judul_clean"].str.contains(query.strip(), case=False, na=False)]["judul"].unique().tolist()
         else:
-            match = df[df["url_katalog"] == selected]
+            st.session_state.filtered_options = df[df["url_katalog"].str.contains(query.strip(), case=False, na=False)]["url_katalog"].unique().tolist()
+
+# Dropdown pilihan (hanya muncul jika ada hasil)
+if st.session_state.filtered_options:
+    st.session_state.selected_item = st.selectbox("Pilih dari hasil pencarian:", st.session_state.filtered_options)
+
+# Tombol 2: Cari Rekomendasi
+if st.button("📚 Tampilkan Rekomendasi"):
+    if not st.session_state.selected_item:
+        st.warning("⚠️ Silakan pilih judul atau URL terlebih dahulu.")
+    else:
+        if search_type == "Judul":
+            hasil = get_recommendations(st.session_state.selected_item)
+        else:
+            match = df[df["url_katalog"] == st.session_state.selected_item]
             if match.empty:
                 st.error("❌ URL tidak ditemukan dalam database.")
                 st.stop()
@@ -117,7 +128,7 @@ if st.button("Cari Rekomendasi"):
         if not hasil:
             st.error("❌ Tidak ada rekomendasi ditemukan.")
         else:
-            st.success(f"Rekomendasi untuk: _{selected}_")
+            st.success(f"Rekomendasi untuk: _{st.session_state.selected_item}_")
             cols = st.columns(2)
 
             for i, item in enumerate(hasil):
@@ -128,4 +139,3 @@ if st.button("Cari Rekomendasi"):
                     st.markdown(f"<span class='accuracy'>Akurasi: {item['akurasi']}%</span>", unsafe_allow_html=True)
                     st.markdown("</div>")
                     st.markdown("---")
-

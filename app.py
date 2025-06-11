@@ -37,6 +37,7 @@ st.markdown("""
         font-size: 1rem;
         font-weight: bold;
         color: #1a237e;
+        text-decoration: none;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -49,6 +50,10 @@ def load_data_from_supabase():
     try:
         response = client.table("katalog_buku").select("*").execute()
         df = pd.DataFrame(response.data)
+
+        # Bersihkan kolom judul dari tag HTML
+        df["judul"] = df["judul"].apply(lambda x: BeautifulSoup(str(x), "html.parser").get_text(strip=True) if pd.notna(x) else "")
+        
         return df
     except Exception as e:
         st.error(f"❌ Error saat mengambil data dari Supabase: {e}")
@@ -138,7 +143,7 @@ else:
 # Tombol cari rekomendasi
 if st.button("🔎 Cari Rekomendasi"):
     if not selected_title:
-        st.warning("⚠️ Silakan pilih judul dari daftar.")
+        st.warning("⚠️ Silakan pilih judul dari dropdown.")
     else:
         hasil_rekomendasi = get_recommendations_by_title(selected_title)
 
